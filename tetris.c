@@ -3,6 +3,7 @@
 #include <time.h>
 
 #define MAX_FILA 10
+#define MAX_PILHA 3
 
 // Estrutura para representar uma peça
 struct Peca {
@@ -18,18 +19,34 @@ struct Fila {
     int tamanho;
 };
 
-// Protótipos das funções
+// Estrutura da pilha
+struct Pilha {
+    struct Peca pecas[MAX_PILHA];
+    int topo;
+};
+
+// Protótipos das funções - Fila
 void inicializarFila(struct Fila *fila);
 int filaVazia(struct Fila *fila);
 int filaCheia(struct Fila *fila);
 void enqueue(struct Fila *fila, struct Peca peca);
 struct Peca dequeue(struct Fila *fila);
-void exibirFila(struct Fila *fila);
+
+// Protótipos das funções - Pilha
+void inicializarPilha(struct Pilha *pilha);
+int pilhaVazia(struct Pilha *pilha);
+int pilhaCheia(struct Pilha *pilha);
+void push(struct Pilha *pilha, struct Peca peca);
+struct Peca pop(struct Pilha *pilha);
+
+// Protótipos das funções - Exibição e controle
+void exibirEstado(struct Fila *fila, struct Pilha *pilha);
 struct Peca gerarPeca(int proximoId);
 void exibirMenu();
 
 int main() {
     struct Fila fila;
+    struct Pilha pilha;
     int opcao;
     int proximoId = 0;
     int i;
@@ -37,12 +54,13 @@ int main() {
     // Inicializar gerador de números aleatórios
     srand(time(NULL));
     
-    // Inicializar a fila
+    // Inicializar a fila e a pilha
     inicializarFila(&fila);
+    inicializarPilha(&pilha);
     
     // Preencher a fila com 5 peças iniciais
     printf("========================================\n");
-    printf("       TETRIS STACK - FILA DE PECAS\n");
+    printf("  TETRIS STACK - FILA E PILHA DE PECAS\n");
     printf("========================================\n\n");
     printf("Inicializando fila com 5 pecas...\n\n");
     
@@ -54,7 +72,7 @@ int main() {
     
     // Loop principal
     do {
-        exibirFila(&fila);
+        exibirEstado(&fila, &pilha);
         exibirMenu();
         printf("Escolha uma opcao: ");
         scanf("%d", &opcao);
@@ -65,18 +83,40 @@ int main() {
                     printf("\n[ERRO] Fila vazia! Nao ha pecas para jogar.\n\n");
                 } else {
                     struct Peca pecaJogada = dequeue(&fila);
-                    printf("\nPeca jogada: [%c %d]\n\n", pecaJogada.nome, pecaJogada.id);
+                    printf("\nPeca jogada: [%c %d]\n", pecaJogada.nome, pecaJogada.id);
+                    
+                    // Adicionar nova peça automaticamente
+                    struct Peca novaPeca = gerarPeca(proximoId);
+                    enqueue(&fila, novaPeca);
+                    printf("Nova peca adicionada a fila: [%c %d]\n\n", novaPeca.nome, novaPeca.id);
+                    proximoId++;
                 }
                 break;
                 
-            case 2: // Inserir nova peça (enqueue)
-                if(filaCheia(&fila)) {
-                    printf("\n[ERRO] Fila cheia! Nao e possivel adicionar mais pecas.\n\n");
+            case 2: // Reservar peça (move da fila para a pilha)
+                if(filaVazia(&fila)) {
+                    printf("\n[ERRO] Fila vazia! Nao ha pecas para reservar.\n\n");
+                } else if(pilhaCheia(&pilha)) {
+                    printf("\n[ERRO] Pilha de reserva cheia! Use uma peca reservada primeiro.\n\n");
                 } else {
+                    struct Peca pecaReservada = dequeue(&fila);
+                    push(&pilha, pecaReservada);
+                    printf("\nPeca reservada: [%c %d]\n", pecaReservada.nome, pecaReservada.id);
+                    
+                    // Adicionar nova peça automaticamente
                     struct Peca novaPeca = gerarPeca(proximoId);
                     enqueue(&fila, novaPeca);
-                    printf("\nNova peca adicionada: [%c %d]\n\n", novaPeca.nome, novaPeca.id);
+                    printf("Nova peca adicionada a fila: [%c %d]\n\n", novaPeca.nome, novaPeca.id);
                     proximoId++;
+                }
+                break;
+                
+            case 3: // Usar peça reservada (pop da pilha)
+                if(pilhaVazia(&pilha)) {
+                    printf("\n[ERRO] Pilha de reserva vazia! Nao ha pecas reservadas.\n\n");
+                } else {
+                    struct Peca pecaUsada = pop(&pilha);
+                    printf("\nPeca reservada usada: [%c %d]\n\n", pecaUsada.nome, pecaUsada.id);
                 }
                 break;
                 
@@ -135,25 +175,77 @@ struct Peca dequeue(struct Fila *fila) {
     return pecaRemovida;
 }
 
-void exibirFila(struct Fila *fila) {
+void inicializarPilha(struct Pilha *pilha) {
+    pilha->topo = -1;
+}
+
+int pilhaVazia(struct Pilha *pilha) {
+    return pilha->topo == -1;
+}
+
+int pilhaCheia(struct Pilha *pilha) {
+    return pilha->topo == MAX_PILHA - 1;
+}
+
+void push(struct Pilha *pilha, struct Peca peca) {
+    if(pilhaCheia(pilha)) {
+        printf("[ERRO] Pilha cheia!\n");
+        return;
+    }
+    
+    pilha->topo++;
+    pilha->pecas[pilha->topo] = peca;
+}
+
+struct Peca pop(struct Pilha *pilha) {
+    struct Peca pecaRemovida;
+    
+    if(pilhaVazia(pilha)) {
+        printf("[ERRO] Pilha vazia!\n");
+        pecaRemovida.nome = '?';
+        pecaRemovida.id = -1;
+        return pecaRemovida;
+    }
+    
+    pecaRemovida = pilha->pecas[pilha->topo];
+    pilha->topo--;
+    
+    return pecaRemovida;
+}
+
+void exibirEstado(struct Fila *fila, struct Pilha *pilha) {
     int i, indice;
     
     printf("========================================\n");
-    printf("         FILA DE PECAS\n");
+    printf("         ESTADO ATUAL\n");
     printf("========================================\n");
     
+    // Exibir fila
+    printf("Fila de pecas:\n");
     if(filaVazia(fila)) {
-        printf("Fila vazia!\n");
+        printf("  (Vazia)\n");
     } else {
+        printf("  ");
         for(i = 0; i < fila->tamanho; i++) {
             indice = (fila->frente + i) % MAX_FILA;
             printf("[%c %d] ", fila->pecas[indice].nome, fila->pecas[indice].id);
         }
         printf("\n");
     }
+    printf("  Pecas: %d/%d\n\n", fila->tamanho, MAX_FILA);
     
-    printf("========================================\n");
-    printf("Pecas na fila: %d/%d\n", fila->tamanho, MAX_FILA);
+    // Exibir pilha
+    printf("Pilha de reserva (Topo -> Base):\n");
+    if(pilhaVazia(pilha)) {
+        printf("  (Vazia)\n");
+    } else {
+        printf("  ");
+        for(i = pilha->topo; i >= 0; i--) {
+            printf("[%c %d] ", pilha->pecas[i].nome, pilha->pecas[i].id);
+        }
+        printf("\n");
+    }
+    printf("  Pecas: %d/%d\n", pilha->topo + 1, MAX_PILHA);
     printf("========================================\n\n");
 }
 
@@ -170,8 +262,9 @@ struct Peca gerarPeca(int proximoId) {
 
 void exibirMenu() {
     printf("ACOES:\n");
-    printf("1 - Jogar peca (dequeue)\n");
-    printf("2 - Inserir nova peca (enqueue)\n");
+    printf("1 - Jogar peca\n");
+    printf("2 - Reservar peca\n");
+    printf("3 - Usar peca reservada\n");
     printf("0 - Sair\n");
     printf("----------------------------------------\n");
 }
