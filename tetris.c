@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define MAX_FILA 10
+#define MAX_FILA 5
 #define MAX_PILHA 3
 
 // Estrutura para representar uma peça
@@ -43,6 +43,8 @@ struct Peca pop(struct Pilha *pilha);
 void exibirEstado(struct Fila *fila, struct Pilha *pilha);
 struct Peca gerarPeca(int proximoId);
 void exibirMenu();
+void trocarPecaAtual(struct Fila *fila, struct Pilha *pilha);
+void trocaMultipla(struct Fila *fila, struct Pilha *pilha);
 
 int main() {
     struct Fila fila;
@@ -118,6 +120,14 @@ int main() {
                     struct Peca pecaUsada = pop(&pilha);
                     printf("\nPeca reservada usada: [%c %d]\n\n", pecaUsada.nome, pecaUsada.id);
                 }
+                break;
+                
+            case 4: // Trocar peça atual (frente da fila com topo da pilha)
+                trocarPecaAtual(&fila, &pilha);
+                break;
+                
+            case 5: // Troca múltipla (3 peças da fila com 3 da pilha)
+                trocaMultipla(&fila, &pilha);
                 break;
                 
             case 0: // Sair
@@ -262,9 +272,114 @@ struct Peca gerarPeca(int proximoId) {
 
 void exibirMenu() {
     printf("ACOES:\n");
-    printf("1 - Jogar peca\n");
-    printf("2 - Reservar peca\n");
-    printf("3 - Usar peca reservada\n");
+    printf("1 - Jogar peca da frente da fila\n");
+    printf("2 - Enviar peca da fila para a pilha de reserva\n");
+    printf("3 - Usar peca da pilha de reserva\n");
+    printf("4 - Trocar peca da frente da fila com o topo da pilha\n");
+    printf("5 - Trocar os 3 primeiros da fila com as 3 pecas da pilha\n");
     printf("0 - Sair\n");
     printf("----------------------------------------\n");
+}
+
+void trocarPecaAtual(struct Fila *fila, struct Pilha *pilha) {
+    if(filaVazia(fila)) {
+        printf("\n[ERRO] Fila vazia! Nao ha peca para trocar.\n\n");
+        return;
+    }
+    
+    if(pilhaVazia(pilha)) {
+        printf("\n[ERRO] Pilha vazia! Nao ha peca para trocar.\n\n");
+        return;
+    }
+    
+    // Remover peça da frente da fila
+    struct Peca pecaFila = dequeue(fila);
+    
+    // Remover peça do topo da pilha
+    struct Peca pecaPilha = pop(pilha);
+    
+    // Inserir peça da pilha na frente da fila (reposicionar)
+    // Como não temos operação para inserir na frente, fazemos um truque:
+    // Salvamos todas as peças, inserimos a nova na frente e recolocamos as outras
+    struct Peca temp[MAX_FILA];
+    int tamanhoOriginal = fila->tamanho;
+    int i;
+    
+    // Guardar todas as peças da fila
+    for(i = 0; i < tamanhoOriginal; i++) {
+        temp[i] = dequeue(fila);
+    }
+    
+    // Inserir a peça da pilha primeiro
+    enqueue(fila, pecaPilha);
+    
+    // Reinserir as peças originais
+    for(i = 0; i < tamanhoOriginal; i++) {
+        enqueue(fila, temp[i]);
+    }
+    
+    // Inserir peça da fila na pilha
+    push(pilha, pecaFila);
+    
+    printf("\nTroca realizada!\n");
+    printf("Peca [%c %d] da fila foi para a pilha\n", pecaFila.nome, pecaFila.id);
+    printf("Peca [%c %d] da pilha foi para a frente da fila\n\n", pecaPilha.nome, pecaPilha.id);
+}
+
+void trocaMultipla(struct Fila *fila, struct Pilha *pilha) {
+    if(fila->tamanho < 3) {
+        printf("\n[ERRO] A fila precisa ter pelo menos 3 pecas! Atual: %d\n\n", fila->tamanho);
+        return;
+    }
+    
+    if(pilha->topo + 1 < 3) {
+        printf("\n[ERRO] A pilha precisa ter 3 pecas! Atual: %d\n\n", pilha->topo + 1);
+        return;
+    }
+    
+    struct Peca filaTemp[3];
+    struct Peca pilhaTemp[3];
+    struct Peca restoFila[MAX_FILA];
+    int restoTamanho = fila->tamanho - 3;
+    int i;
+    
+    printf("\nRealizando troca multipla...\n");
+    
+    // Guardar as 3 primeiras peças da fila
+    for(i = 0; i < 3; i++) {
+        filaTemp[i] = dequeue(fila);
+        printf("Removido da fila: [%c %d]\n", filaTemp[i].nome, filaTemp[i].id);
+    }
+    
+    // Guardar o resto da fila
+    for(i = 0; i < restoTamanho; i++) {
+        restoFila[i] = dequeue(fila);
+    }
+    
+    // Guardar as 3 peças da pilha (do topo para a base)
+    for(i = 0; i < 3; i++) {
+        pilhaTemp[i] = pop(pilha);
+        printf("Removido da pilha: [%c %d]\n", pilhaTemp[i].nome, pilhaTemp[i].id);
+    }
+    
+    printf("\n--- Realizando a troca ---\n");
+    
+    // Colocar as peças da pilha na frente da fila (na ordem inversa para manter a lógica)
+    for(i = 2; i >= 0; i--) {
+        enqueue(fila, pilhaTemp[i]);
+        printf("Inserido na fila: [%c %d]\n", pilhaTemp[i].nome, pilhaTemp[i].id);
+    }
+    
+    // Recolocar o resto das peças da fila
+    for(i = 0; i < restoTamanho; i++) {
+        enqueue(fila, restoFila[i]);
+    }
+    
+    // Colocar as peças da fila na pilha (na ordem inversa para manter LIFO)
+    for(i = 2; i >= 0; i--) {
+        push(pilha, filaTemp[i]);
+        printf("Inserido na pilha: [%c %d]\n", filaTemp[i].nome, filaTemp[i].id);
+    }
+    
+    printf("\nTroca multipla concluida com sucesso!\n\n");
 }
